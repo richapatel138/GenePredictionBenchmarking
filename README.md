@@ -6,9 +6,12 @@ Gene prediction, the process of identifying regions of DNA that encode proteins,
 
 # Python Notebook (Running Tools)
 The Python notebook in this repository outlines in detail the code used to download the genomes and annotation files, parse ground truth, run and parse output for AUGUSTUS using bacteria and archaea models, run Prodigal, run FragGeneScan, and run GFFCompare for all tests. As there are 10 genomes tested for each tool, the code streamlines the process by looping through and running the commands, and making sure the output is place in the appropraite folder. 
+* [Python Notebook](https://github.com/richapatel138/GenePredictionBenchmarking/blob/main/BenchmarkingProject_Python.ipynb)
+* [Python HTML File](https://github.com/richapatel138/GenePredictionBenchmarking/blob/main/BenchmarkingProject_Python.html)
 
 # R Markdown (Analysis)
-The R makrdown file in this repository outlines the code used to generate tables and plots for analysis. It uses the manually curated ComparisonStats.xlsx spreadsheet, which is also included in this repository. 
-
-
+The R makrdown file in this repository outlines the code used to generate tables and plots for analysis. It uses the manually curated ComparisonStats.csv, which is also included in this repository. 
+* [Comparisons CSV](https://github.com/richapatel138/GenePredictionBenchmarking/blob/main/ComparisonStats.csv)
+* [R Markdown](https://github.com/richapatel138/GenePredictionBenchmarking/blob/main/BenchmarkingProject_R.Rmd)
+* [R HTML File](https://github.com/richapatel138/GenePredictionBenchmarking/blob/main/BenchmarkingProject_R.html)
 
