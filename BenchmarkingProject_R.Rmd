@@ -1,0 +1,173 @@
+---
+title: "BenchmarkingProject_R"
+author: "Richa Patel"
+date: "2025-11-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import Necessary Packages
+
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
+```
+
+### Read & Format Metric Data
+
+```{r}
+#read in original file 
+comparisons = read.csv("ComparisonStats.csv")
+
+#convert the percent values to be numeric 
+percent_cols = c("gc_content","base_sens","base_prec", "transcript_sens","transcript_prec", "locus_sens","locus_prec", "matching_transcripts_per","matching_loci_per", "missed_loci_per","novel_loci_per")
+
+df = comparisons %>% mutate(across(all_of(percent_cols), ~ parse_number(.x)))
+
+```
+
+# Overall Performance
+
+This section of code computes the composite score and the ranked dataframes. This corresponds to Table 2 & 3 in the report.
+
+```{r}
+
+#adds a column in the df that has composite scores for each row (composite score is based on the average of the 6 sensativty/precision metrics)
+df$composite <- rowMeans(df[, c("base_sens", "base_prec", 
+                                "transcript_sens", "transcript_prec",
+                                "locus_sens", "locus_prec")])
+
+#make a df that has composite scores -- averages the metrics for all genomes into one score for tool
+df_score <- df %>% 
+  group_by(tool) %>% 
+  summarise(mean_comp = mean(composite), #taking composite of mean acorss tools
+            sd_comp = sd(composite)) #standard deviation
+df_score
+
+#makes a ranked dataframe for the 6 prec/sens metrics. it takes the highest as being the best
+ranked_comp <- df %>%
+  #grouped summary by tool
+  group_by(tool) %>% 
+  #calculate the mean for each tool
+  summarise(across(c(base_sens:locus_prec), ~ mean(.x, na.rm=T))) %>% 
+  #makes higher values get smaller (better) ranks
+  mutate(across(-tool, ~ rank(-.x))) %>%
+  #average rank for each tool across all metrics
+  mutate(mean_rank = rowMeans(across(-tool))) %>%
+  #order the tools from best to worst
+  arrange(mean_rank)
+
+ranked_comp
+
+#makes a ranked dataframe for time and memory. it takes the lowest as being the best. the steps are the same as above except for the mutate(across...) where we are make it so that lower values get smaller (better) ranks.
+ranked_complex <- df %>%
+  group_by(tool) %>%
+  summarise(across(c(time_s:memory_kb), ~ mean(.x, na.rm=T))) %>%
+  #makes smaller values get smaller (better) ranks
+  mutate(across(-tool, ~ rank(.x))) %>%
+  mutate(mean_rank = rowMeans(across(-tool))) %>%
+  arrange(mean_rank)
+ranked_complex
+
+
+```
+
+# GC Content and Composite Score
+
+This corresponds to Figure 1 in the report.
+
+```{r}
+#plot gc_content against the composite score, for each tool
+ggplot(df, aes(x=gc_content, y=composite, color=tool)) + 
+  geom_point(size=3) + 
+  #adds the LM regression line for each tool to show realtionship
+  geom_smooth(method="lm", se=FALSE) + 
+  theme_minimal() +
+  #labeling
+  labs(x="GC Content (%)", y="Composite Score",
+    title="Composite Score vs GC Content")
+```
+
+# Runtime & Memory Usage
+
+### Predictive Power (Composite Score)
+
+This corresponds to Figure 2 in the report.
+
+```{r}
+#plot time against the composite score, for each tool
+rva = ggplot(df, aes(x=time_s, y=composite, color=tool)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  labs(x="Time (seconds)", y="Composite Score",
+    title="Runtime & Memory vs Composite Score") +
+  theme(legend.position = "none")
+
+#plot memory against the composite score, for each tool
+#memory is transformed to be in MB from KB for easier understanding 
+mva = ggplot(df, aes(x=memory_kb / 1024, y=composite, color=tool)) + 
+  geom_point(size=3) +
+  theme_minimal() +
+  labs(x="Memory (MB)", y="Composite Score") +
+  theme(axis.title.y = element_blank())
+
+#plots the figures together
+rva + mva
+```
+
+### Genome Size
+
+This corresponds to Figure 3 in the report.
+
+```{r}
+#plot time against the genome size, for each tool
+#genome size is in megabase pairs instead of base pairs for ease of understnading the axis
+rvgs = ggplot(df, aes(x=length_bp /100000, y=time_s, color=tool)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(x="Genome Size (Mb)", y="Time (s)",
+    title="Runtime & Memory vs Genome Size") +
+  theme(legend.position = "none")
+
+#plot memory against the genome size, for each tool
+#genome size is in megabase pairs instead of base pairs for ease of understnading the axis
+#memory is transformed to be in MB from KB for easier understanding 
+mvgs = ggplot(df, aes(x=length_bp /100000, y=memory_kb / 1024, color=tool)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_smooth(method="lm", se=FALSE) +
+  labs(x="Genome Size (Mb)", y="Memory (MB)")
+
+#plots the figures together
+rvgs + mvgs
+```
+
+# False Negative and False Positive Loci Predictions
+
+This corresponds to Figure 4 & 5 in the report.
+
+```{r}
+#boxplots for novel loci rate (false positives) for each tool
+ggplot(df, aes(x=tool, y=novel_loci_per, fill=tool)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(x="Tool", y="Percentage of Novel Loci",
+    title="Novel Loci Rate Per Tool (False Positives)") +
+  theme(axis.text.x = element_text(size = 8))
+
+#boxplots for missed loci rate (false negatives) for each tool
+ggplot(df, aes(x=tool, y=missed_loci_per, fill=tool)) +
+  geom_boxplot() +
+  theme_minimal() + 
+  labs(x="Tool", y="Percentage of Missed Loci",
+    title="Missed Loci Rate Per Tool (False Negatives)") +
+  theme(axis.text.x = element_text(size = 8))
+
+```
